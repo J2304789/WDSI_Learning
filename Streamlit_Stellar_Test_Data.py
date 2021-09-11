@@ -91,33 +91,34 @@ add_text_memo=(st.text_input("What would you like to add as a memo?\n"))
 
 
 set_timeout=(st.text_input("How many seconds would you like for the transaction to be vaild for?\n"))
-Transaction_Trust= (
-    TransactionBuilder(
-        #loads Source_Pair Account
-        source_account=server.load_account(Source_pubkey),
-        #activates Network Passphrase(Testnet)
-        network_passphrase=Public_network_passphrase,
-        #establishes cost of Base fee
-        base_fee=base_fee)
+if amount and asset_code and add_text_memo and set_timeout:
+    Transaction_Trust= (
+        TransactionBuilder(
+            #loads Source_Pair Account
+            source_account=server.load_account(Source_pubkey),
+            #activates Network Passphrase(Testnet)
+            network_passphrase=Public_network_passphrase,
+            #establishes cost of Base fee
+            base_fee=base_fee)
 
-        .append_payment_op(destination=Destination_pubkey,
-        amount=amount,
-        asset_code=asset_code
-        )
-        .add_text_memo(add_text_memo)
+            .append_payment_op(destination=Destination_pubkey,
+            amount=amount,
+            asset_code=asset_code
+            )
+            .add_text_memo(add_text_memo)
 
-        #times out the transaction if not completed within x seconds
-        .set_timeout(int(set_timeout))
-        .build()
-        )
+            #times out the transaction if not completed within x seconds
+           .set_timeout(int(set_timeout))
+            .build()
+            )
 
-#signs transaction with Source_pair's Private key in order to verify transaction's authorization
-Transaction_Trust.sign(Source_pair.secret)
+    #signs transaction with Source_pair's Private key in order to verify transaction's authorization
+    Transaction_Trust.sign(Source_pair.secret)
 
-#checks if Transaction was valid, otherwise prints out error response
-try:
-    Final_response=server.submit_transaction(Transaction_Trust)
-    st.text(f"Response:{Final_response}")
-    st.text("\nTransaction added to blockchain\n")
-except (BadRequestError,BadResponseError) as error:
-    st.text(f"Error:{error}")
+    #checks if Transaction was valid, otherwise prints out error response
+    try:
+        Final_response=server.submit_transaction(Transaction_Trust)
+        st.text(f"Response:{Final_response}")
+        st.text("\nTransaction added to blockchain\n")
+    except (BadRequestError,BadResponseError) as error:
+        st.text(f"Error:{error}")
