@@ -18,4 +18,4 @@ from Client.stellar_client import StellarClient
 
 def app():
     sc = StellarClient()
-    sc.initialize_client('login')
+    # sc.initialize_client('login')

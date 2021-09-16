@@ -45,6 +45,7 @@ class StellarClient:
                         }
 
         self.public_network_passphrase=Network.PUBLIC_NETWORK_PASSPHRASE
+        self.SQL_initialize()
         
 
 
