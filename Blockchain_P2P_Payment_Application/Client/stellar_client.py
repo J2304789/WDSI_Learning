@@ -26,8 +26,10 @@ class StellarClient:
     def __init__(self):
 
         self.sessionID = ""
+        self.name = ""
         self.hashedSessionID = ""
         self.sessionPassword = ""
+        self.privateKey = ""
         self.encryptKey = ""
         self.sex = ""
         self.age = ""
@@ -41,6 +43,8 @@ class StellarClient:
                         'database': 'sql5436993',
                         'raise_on_warnings': True
                         }
+
+        self.public_network_passphrase=Network.PUBLIC_NETWORK_PASSPHRASE
         
 
 
@@ -240,17 +244,84 @@ class StellarClient:
 
     def main_menu(self):                                                                                    #<---------- Main menu for logged users ---------->
         def display_balance():                                                                              #Displays the balance of the current logged user.
-            InputManager.display_message(message=f"NOT CODED YET")
+            for balance in self.Source_account['balances']:
+                #XLM is Stellar's own Asset
+                print(f"Asset Type:{balance['asset_type']},Total Balance:{balance['balance']}")
+            InputManager.display_message(message = "")
 
         def display_account_data():                                                                         #Displays all the available data of the current logged user.
-            InputManager.display_message(message=f"NOT CODED YET")
+            print("")                                                                                       
+            print(f"Your registered ID is   : {self.sessionID}")
+            print(f"Your registered Name is : {self.name}")
+            print(f"Your registered Age is  : {self.age}")
+            print(f"Your registered Sex is  : {self.sex}")
+            print(f"Balances: ")
+            display_balance()
 
-        def validate_balance(amount):                                                                       #<---------- Validates if the current balance of the logged user is sufficient for amount sent as parameter.
-            InputManager.display_message(message=f"NOT CODED YET")
+
+        def send_payment():        
+                                                                                     #Initializes the process for sending a payment to another user.            
+            receiverOption = InputManager.define_numbers(message="Please enter 1 if the receiver has an account, 2 if not:", infLimit = 1, supLimit = 2,typeOfNumber = int)
+            
+            if receiverOption == 1:
+                #STARTS QUERIES FOR UserPublicKey TABLE
+                destinationUsername = InputManager.define_string("Please enter the destination username:")
+
+                query = f"SELECT publicKey FROM UserPublicKey WHERE username = \"{destinationUsername}\""
+                queryResult = self.SQL_execute_twoway_statement(query)
+
+                if not queryResult:
+                    InputManager.display_message(message = "This user does not exists, please try again")
+                    return
+                destinationPublicKey = queryResult[0][0]
+                #FINISHES QUERIES FOR UserPublicKey TABLE
+            else:
+                destinationPublicKey = InputManager.define_string("Please enter the destination public key:")
+
+            base_fee=self.server.fetch_base_fee()
+            feeConfirmation = InputManager.define_numbers(message=f"An ammount of {base_fee} will be charged as fee, enter 1 if you confirm, 2 for cancelling", infLimit = 1, supLimit = 2,typeOfNumber = int)
+
+            if feeConfirmation == 2:
+                InputManager.display_message(message="Transaction canceled")
+                return  
+            try:
+                self.server.load_account(destinationPublicKey)
+            except NotFoundError:
+                InputManager.display_message(message="Account not found")
+                return
+            
+            Transaction_Trust= (
+                TransactionBuilder(
+                    #loads Source_Pair Account
+                    source_account=self.server.load_account(self.publicKey),
+                    #activates Network Passphrase(Testnet)
+                    network_passphrase=self.public_network_passphrase,
+                    #establishes cost of Base fee
+                    base_fee=base_fee
+                    )
+
+                    .append_payment_op(destination=destinationPublicKey,
+                    amount=input("\nHow much would you like to send?\n"),
+                    asset_code=input("\nWhat asset would you like to send?\n"))
+
+                    .add_text_memo(input("What would you like to add as a memo?\n"))
+
+                    #times out the transaction if not completed within x seconds
+                    .set_timeout(int(input("\nHow many seconds would you like for the transaction to be vaild for?\n")))
+                    .build()
+                    )
+            Transaction_Trust.sign(self.privateKey)
+
+            try:
+                Final_response=self.server.submit_transaction(Transaction_Trust)
+                print(f"Response:{Final_response}")
+                InputManager.display_message(message = "\nTransaction added to blockchain\n")
+                # print(f"Response:{Final_response}")
+                # print("\nTransaction added to blockchain\n")
+            except (BadRequestError,BadResponseError) as error:
+                InputManager.display_message(message=f"Error: {error}")
 
 
-        def send_payment():                                                                                 #Initializes the process for sending a payment to another user.
-            InputManager.display_message(message=f"NOT CODED YET")
 
         while True:                                                             #Menu for logged users.
             print("")
