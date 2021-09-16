@@ -1,14 +1,21 @@
 from typing import Text
 import streamlit as st
+from re import U
+from stellar_sdk.keypair import Keypair
+#stellar_sdk.server used to connect to Stellar-core through the Horizon API
+from stellar_sdk.server import Server
+#stellar_sdk.network is used to get the Passphrase of either the test or main Stellar network 
+from stellar_sdk.network import Network
+#TransactionBuilder is used to create 
+from stellar_sdk import TransactionBuilder
+#stellar_sdk.exceptions is used for Error Dectection in transactions
+from stellar_sdk.exceptions import NotFoundError,BadResponseError,BadRequestError
+# #requests is used to initiate the transaction between friendbot and the Public keys
+import requests
+
+from Client.stellar_client import StellarClient
+
 
 def app():
-    st.sidebar.subheader('Login Section')
-    with st.sidebar.form(key='my_form'):
-        username = st.text_input('Username')
-        password = st.text_input('Password', type='password')
-        submit_button = st.form_submit_button(label='Login')
-
-    if username == 'moxu':
-        st.succes('luck')
-    if __name__ == '__app__':
-        app()
+    sc = StellarClient()
+    sc.initialize_client('login')

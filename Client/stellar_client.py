@@ -12,10 +12,11 @@ from stellar_sdk.exceptions import NotFoundError,BadResponseError,BadRequestErro
 import requests
 
 import mysql.connector      
-from input_manager import InputManager
+from Client.input_manager import InputManager
 from hashlib import sha256
 import time
 from cryptography.fernet import Fernet
+import streamlit as st
 
 
 
@@ -31,6 +32,7 @@ class StellarClient:
         self.sex = ""
         self.age = ""
         self.balances = ""
+        #self.connection = None
 
         self.mySQLConfig = {
                         'user': 'sql5436993',
@@ -93,10 +95,10 @@ class StellarClient:
 
     def process_data(self):                                                                                     #<---------- Handles all data required inputs for account creation ---------->
         
-        while True:      
+        while True:
                                                                                                    #Starts loop until the new account ID entered is not already registered. 
-            #REPLACE WITH STREAMLIT INPUT                                                        
-            profileID = InputManager.define_string("Please enter your new account ID")              #Enters the new account ID.
+            #REPLACE WITH STREAMLIT INPUT                                                       
+            profileID = st.sidebar.text_input("Please enter your new account ID")              #Enters the new account ID.
             hashedProfileID = sha256(profileID.encode()).hexdigest()                                #Hashes it and turns it into hex string
 
             query = f"SELECT EXISTS(SELECT * FROM UserLoginData WHERE hashedUsername = \"{hashedProfileID}\") "       #Prepares SQL query
@@ -104,28 +106,35 @@ class StellarClient:
             queryResult = self.SQL_execute_twoway_statement(query)[0][0]                                            #Because the function returns an array with tuples, we want the first registry and the first element from the tuple.
 
             if queryResult:                                                                     #If the account is already registered, display message and continue in loop.
-                InputManager.display_message("This account ID is already registered, please try another one")
-            else:                                                                                               #If the account is not registered, break the loop.
-                break
+                st.error("This account ID is already registered, please try another one")
+            else:
+                with st.sidebar.form(key='my_form'):
+                    #REPLACE WITH STREAMLIT INPUT 
+                    profileName = st.text_input("Please enter your full name:")                                #Enters the person name.
+                    #REPLACE WITH STREAMLIT INPUT 
+                    profileAge = st.text_input(message="Please enter your age (Must be greater or equal than 18):")             #Enters the person age with bounds.
+                    #REPLACE WITH STREAMLIT INPUT 
+                    profileSex = st.text_input("Please enter the letter corresponding to your sex (Male = M) (Female = F):")                                       #Enters the person sex.
+                    #REPLACE WITH STREAMLIT INPUT 
+                    profilePassword = sha256(st.text_input("Please enter your password, must be minimum 6 characters long, maximum 30:").encode()).hexdigest()   #Enters the new account password with length bounds and hashes it.
+                    #REPLACE WITH STREAMLIT INPUT 
+                    publicKey = st.text_input("Please your public key:") 
+                    #REPLACE WITH STREAMLIT INPUT 
+                    privateKey = st.text_input("Please your private key:")
+                    submit_but = st.sidebar.form_submit_button('Sign Up') 
 
-
-        #REPLACE WITH STREAMLIT INPUT 
-        profileName = InputManager.define_string("Please enter your full name:")                                #Enters the person name.
-        #REPLACE WITH STREAMLIT INPUT 
-        profileAge = InputManager.define_numbers(message="Please enter your age (Must be greater or equal than 18):", infLimit = 18,typeOfNumber = int)             #Enters the person age with bounds.
-        #REPLACE WITH STREAMLIT INPUT 
-        profileSex = InputManager.define_string("Please enter the letter corresponding to your sex (Male = M) (Female = F):")                                       #Enters the person sex.
-        #REPLACE WITH STREAMLIT INPUT 
-        profilePassword = sha256(InputManager.define_string(message="Please enter your password, must be minimum 6 characters long, maximum 30:", infLimit=6, supLimit=30).encode()).hexdigest()   #Enters the new account password with length bounds and hashes it.
-        #REPLACE WITH STREAMLIT INPUT 
-        publicKey = InputManager.define_string("Please your public key:") 
-        #REPLACE WITH STREAMLIT INPUT 
-        privateKey = InputManager.define_string("Please your private key:") 
-
-        #Prepares data into a hashMap (Dictionary)
-        profileData = {"Username": profileID, "HashedUsername": hashedProfileID, "Name": profileName, "Age": profileAge, "Sex": profileSex, "Password": profilePassword, "PublicKey": publicKey, "PrivateKey": privateKey}      
-
-        return profileData      
+                #Prepares data into a hashMap (Dictionary)
+                if submit_but:
+                    return {
+                        "Username": profileID,
+                        "HashedUsername": hashedProfileID,
+                        "Name": profileName,
+                        "Age": profileAge,
+                        "Sex": profileSex,
+                        "Password": profilePassword,
+                        "PublicKey": publicKey,
+                        "PrivateKey": privateKey,
+                    }      
 
     def create_account(self): #Full creation of an account process
 
@@ -141,7 +150,7 @@ class StellarClient:
         queryResult = self.SQL_execute_oneway_statement(query)                                                                              #Executes the SQL query
 
         if not queryResult:                                                                                 #If this query wasn't successful, print error.
-            InputManager.display_message("There was an error while creating your account, query 1")
+            st.error("There was an error while creating your account, query 1")
             return
 
         #FINISHES QUERIES FOR UserLoginData TABLE
@@ -163,7 +172,7 @@ class StellarClient:
         queryResult2 = self.SQL_execute_oneway_statement(query2)
 
         if not queryResult2:                                                                                    #If this query wasn't successful, print error.
-            InputManager.display_message("There was an error while creating your account, query 2")
+            st.error("There was an error while creating your account, query 2")
             return
 
         #FINISHES QUERIES FOR UserData TABLE
@@ -177,57 +186,57 @@ class StellarClient:
         #FINISHES QUERIES FOR UserPublicKey TABLE
 
         if not queryResult3:
-            InputManager.display_message(message = "There was an error while creating your account, query 2")
+            st.error(message = "There was an error while creating your account, query 2")
             return
 
-        InputManager.display_message(message = f"Encrypt Key: {encryptKey}")                                         #If no errors, display successful creation
-        InputManager.display_message(message = "Account succesfully created")                                         #If no errors, display successful creation
+        st.info(f"Encrypt Key: {encryptKey}")                                         #If no errors, display successful creation
+        st.success("Account succesfully created")                                         #If no errors, display successful creation
 
     def log_in(self):
-        sessionID = InputManager.define_string("Please enter your account ID")
-        hashedSessionID = sha256(sessionID.encode()).hexdigest()
-
-        sessionPassword = sha256(InputManager.define_string(message="Please enter your password:", infLimit=6, supLimit=30).encode()).hexdigest()
-
+        #with st.sidebar.text:
+        sessionID = st.sidebar.text_input("Please enter your account ID")
+        sessionPassword = sha256(st.sidebar.text_input("Please enter your password:", type='password').encode()).hexdigest()
+        submit = st.sidebar.button('Login')
         #STARTS QUERIES FOR UserLoginData TABLE
-
-        query = f"SELECT encryptionKey FROM UserLoginData WHERE hashedUsername = \"{hashedSessionID}\" AND hashedPassword = \"{sessionPassword}\""
-        queryResult = self.SQL_execute_twoway_statement(query)
+        if submit:
+            hashedSessionID = sha256(sessionID.encode()).hexdigest()
+            query = f"SELECT encryptionKey FROM UserLoginData WHERE hashedUsername = \"{hashedSessionID}\" AND hashedPassword = \"{sessionPassword}\""
+            queryResult = self.SQL_execute_twoway_statement(query)
         
-        #FINISHES QUERIES FOR UserLoginData TABLE
+            #FINISHES QUERIES FOR UserLoginData TABLE
 
-        if not queryResult:
-            InputManager.display_message(message = "The password or user for this account is incorrect, please try again")
-            return False
-        else:
-            self.sessionID = sessionID
-            self.hashedSessionID = hashedSessionID
-            self.sessionPassword = sessionPassword
-            self.encryptKey = queryResult[0][0].encode()
+            if not queryResult:
+                st.error("The password or user for this account is incorrect, please try again")
+                return False
+            else:
+                self.sessionID = sessionID
+                self.hashedSessionID = hashedSessionID
+                self.sessionPassword = sessionPassword
+                self.encryptKey = queryResult[0][0].encode()
 
-        usernameSpecialHash = self.sessionID+"WDSI"                                                    #We salt the username with a 'WSDI' string for more security
-        usernameSpecialHash = sha256(usernameSpecialHash.encode()).hexdigest()
+            usernameSpecial = self.sessionID+"WDSI"                                                    #We salt the username with a 'WSDI' string for more security
+            usernameSpecialHash = sha256(usernameSpecial.encode()).hexdigest()
 
-        #STARTS QUERIES FOR UserData TABLE
+            #STARTS QUERIES FOR UserData TABLE
 
-        query2 = f"SELECT * FROM UserData WHERE usernameSpecialHash = \"{usernameSpecialHash}\""
-        queryResult2 = self.SQL_execute_twoway_statement(query2)
+            query2 = f"SELECT * FROM UserData WHERE usernameSpecialHash = \"{usernameSpecialHash}\""
+            queryResult2 = self.SQL_execute_twoway_statement(query2)
 
-        #FINISHES QUERIES FOR UserData TABLE
+            #FINISHES QUERIES FOR UserData TABLE
 
-        fernetKey = Fernet(self.encryptKey)      #Generates a Fernet object for encrypting things with the key in bytes format
+            fernetKey = Fernet(self.encryptKey)      #Generates a Fernet object for encrypting things with the key in bytes format
 
-        nameEncrypted = queryResult2[0][2].encode()
-        self.name = fernetKey.decrypt(nameEncrypted).decode()
+            nameEncrypted = queryResult2[0][2].encode()
+            self.name = fernetKey.decrypt(nameEncrypted).decode()
 
-        privateKeyEncrypted = queryResult2[0][1].encode()
-        self.privateKey = fernetKey.decrypt(privateKeyEncrypted).decode()
+            privateKeyEncrypted = queryResult2[0][1].encode()
+            self.privateKey = fernetKey.decrypt(privateKeyEncrypted).decode()
 
-        self.sex = queryResult2[0][3]
-        self.age = queryResult2[0][4]
-        self.balances = queryResult2[0][5]
+            self.sex = queryResult2[0][3]
+            self.age = queryResult2[0][4]
+            self.balances = queryResult2[0][5]
 
-        return True
+            return True
 
     def main_menu(self):                                                                                    #<---------- Main menu for logged users ---------->
         def display_balance():                                                                              #Displays the balance of the current logged user.
@@ -270,31 +279,16 @@ class StellarClient:
 
 
 
-    def initialize_client(self):
+    def initialize_client(self, selectedOption):
         self.SQL_initialize()
-        while True:                                                                 #Main loop that runs the client console menu.
-            print("")
-            print("*****************************************************")
-            print("WELCOME TO THE STELLAR NETWORK P2P SERVICE")
-            print("")
-            print("1) Log in")                                                      #Option for log in into your account by typing 1.
-            print("2) Create account")                                              #Option for creating an account by typing 2.
-            print("3) Exit")                                                        #Option for exiting the menu by typing 3.
-            print("")
-            print("*****************************************************")
-            selectedOption = InputManager.define_numbers(message="Type a number according to your selected option", infLimit = 1, supLimit = 3,typeOfNumber = int) #Calls InputManager function for entering a bounded number and repeating until the number is accepted.
-            if selectedOption == 3:                                                 #What it executes when you exit the menu.
-                print()
-                print("THANKS FOR USING THE STELLAR NETWORK P2P SERVICE")
-                print()
-                break                                                               #Breaks the main loop and exits the program.
-            if selectedOption == 1: #Not coded yet                                  #Executes what you need to log in into your account.
-                pass
+        while True:                                                             #Main loop that runs the client console menu.
+            #selectedOption = InputManager.define_numbers(message="Type a number according to your selected option", infLimit = 1, supLimit = 3,typeOfNumber = int) #Calls InputManager function for entering a bounded number and repeating until the number is accepted.                                                           #Breaks the main loop and exits the program.
+            if selectedOption == 'login': #Not coded yet                                  #Executes what you need to log in into your account.
                 logFlag = self.log_in()                                             #Calls the log in service, if is successful returns 'True' else returns 'False'.
                 if logFlag:                                                         #If the log in service is successful, call the main logged menu.
                     self.main_menu()
 
-            if selectedOption == 2:                                                 #Executes the necessary for creating an account.
+            if selectedOption == 'create_account':                                                 #Executes the necessary for creating an account.
                 self.create_account()         
 
 
