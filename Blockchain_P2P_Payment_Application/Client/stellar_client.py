@@ -198,8 +198,8 @@ class StellarClient:
 
     def log_in(self):
         #with st.sidebar.text:
-        sessionID = st.sidebar.text_input("Please enter your account ID")
-        sessionPassword = sha256(st.sidebar.text_input("Please enter your password:", type='password').encode()).hexdigest()
+        sessionID = st.sidebar.text_input("Please enter your account ID", key='1')
+        sessionPassword = sha256(st.sidebar.text_input("Please enter your password:", type='password', key='2').encode()).hexdigest()
         submit = st.sidebar.button('Login')
         #STARTS QUERIES FOR UserLoginData TABLE
         if submit:
