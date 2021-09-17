@@ -15,9 +15,10 @@ import requests
 
 from Client.stellar_client import StellarClient
 
-
 def app():
     sc = StellarClient()
     if sc.log_in():
-        sc.main_menu()
-    # sc.initialize_client('login')
+            #sc.main_menu()
+            #sc.main_menu()
+        st.write(sc.send_payment())
+        # sc.initialize_client('login')
