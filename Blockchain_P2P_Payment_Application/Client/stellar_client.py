@@ -17,6 +17,7 @@ from hashlib import sha256
 import time
 from cryptography.fernet import Fernet
 import streamlit as st
+import pandas as pd
 
 
 
@@ -210,7 +211,8 @@ class StellarClient:
             
             #STELLAR CONFIG
 
-            self.server = Server('https://horizon.stellar.org')
+            #self.server = Server('https://horizon.stellar.org')
+            self.server = Server("https://horizon-testnet.stellar.org")
             try:
                 self.Source_account=self.server.accounts().account_id(self.publicKey).call()
             except:
@@ -223,18 +225,18 @@ class StellarClient:
     def main_menu(self):                                                                                    #<---------- Main menu for logged users ---------->
         def display_balance():                                                                              #Displays the balance of the current logged user.
             for balance in self.Source_account['balances']:
-                #XLM is Stellar's own Asset
-                print(f"Asset Type:{balance['asset_type']},Total Balance:{balance['balance']}")
+                return {'Asset Type': [balance['asset_type']], 
+                                'Total Balance': [balance['balance']]}
+                #st.write(f"Asset Type: {balance['asset_type']}, Total Balance: {balance['balance']}")
             #InputManager.display_message(message = "")
 
         def display_account_data():                                                                         #Displays all the available data of the current logged user.
-            print("")                                                                                       
-            print(f"Your registered ID is   : {self.sessionID}")
-            print(f"Your registered Name is : {self.name}")
-            print(f"Your registered Age is  : {self.age}")
-            print(f"Your registered Sex is  : {self.sex}")
-            print(f"Balances: ")
-            display_balance()
+                                                                                                 
+            registered_id = [self.sessionID]
+            name = [self.name]
+            age = [self.age]
+            sex = [self.sex]
+            return registered_id, name, age, sex
 
 
         def send_payment():        
@@ -299,9 +301,18 @@ class StellarClient:
             except (BadRequestError,BadResponseError) as error:
                 InputManager.display_message(message=f"Error: {error}")
 
-
-
-        st.info(display_balance())
+        col_1, col_2 = st.columns((2, 2))
+        with col_1:
+            with st.expander('Click to display your balance'):
+                st.table(pd.DataFrame(display_balance()))
+        col_1_1, col_2_1, col_3_1 = st.columns((1, 5, 1))
+        with col_2_1:
+            with st.expander('Click here to see your account data.'): 
+                id, name, age, sex = display_account_data()
+                st.table(pd.DataFrame({'id':id, 
+                                        'name':name, 
+                                        'age':age, 
+                                        'sex':sex}))
 
 
 
