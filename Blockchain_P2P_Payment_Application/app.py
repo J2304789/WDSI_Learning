@@ -1,5 +1,5 @@
 import streamlit as st
-st.set_page_config(page_title='Loft Customer Analytics Tool', layout='wide', initial_sidebar_state='auto')
+st.set_page_config(page_title='P2P Payment App', layout='wide', initial_sidebar_state='auto')
 import datetime
 
 

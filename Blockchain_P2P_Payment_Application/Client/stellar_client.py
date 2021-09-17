@@ -176,7 +176,7 @@ class StellarClient:
                 self.hashedSessionID = hashedSessionID
                 self.sessionPassword = sessionPassword
                 self.encryptKey = queryResult[0][0].encode()
-                st.success('You logged succesfully!')
+                
 
             usernameSpecial = self.sessionID+"WDSI"                                                    #We salt the username with a 'WSDI' string for more security
             usernameSpecialHash = sha256(usernameSpecial.encode()).hexdigest()
@@ -211,24 +211,36 @@ class StellarClient:
             
             #STELLAR CONFIG
 
-            #self.server = Server('https://horizon.stellar.org')
-            self.server = Server("https://horizon-testnet.stellar.org")
+            #self.server = Server('https://horizon.stellar.org')        #For MainNet
+            self.server = Server("https://horizon-testnet.stellar.org")         #For TestNet
             try:
                 self.Source_account=self.server.accounts().account_id(self.publicKey).call()
             except:
                 #InputManager.display_message(message = "Invalid Stellar public key")
                 st.error('We cannot found your Public Key!')
                 return False
-
+            st.success('You logged succesfully!')
             return True
 
     def main_menu(self):                                                                                    #<---------- Main menu for logged users ---------->
-        def display_balance():                                                                              #Displays the balance of the current logged user.
+        def display_balance():
+            dataframe = {'Asset Type': [], 
+                         'Total Balance': []}                                                                            #Displays the balance of the current logged user.
             for balance in self.Source_account['balances']:
-                return {'Asset Type': [balance['asset_type']], 
-                                'Total Balance': [balance['balance']]}
+                if balance['asset_type'] == "native":
+                    balance['asset_type'] = "XLM"
+                dataframe['Asset Type'].append(balance['asset_type'])
+                dataframe['Total Balance'].append(balance['balance'])
+                # return {'Asset Type': [balance['asset_type']], 
+                #                 'Total Balance': [balance['balance']]}
                 #st.write(f"Asset Type: {balance['asset_type']}, Total Balance: {balance['balance']}")
             #InputManager.display_message(message = "")
+            dataframe = pd.DataFrame(dataframe)
+
+            dataframe.index = dataframe['Asset Type']
+            dataframe.drop('Asset Type', axis=1, inplace=True)
+            # print(dataframe)
+            return dataframe
 
         def display_account_data():                                                                         #Displays all the available data of the current logged user.
                                                                                                  
@@ -241,33 +253,42 @@ class StellarClient:
 
         def send_payment():        
                                                                                      #Initializes the process for sending a payment to another user.            
-            receiverOption = InputManager.define_numbers(message="Please enter 1 if the receiver has an account, 2 if not:", infLimit = 1, supLimit = 2,typeOfNumber = int)
+            receiverOption = st.text_input("Please enter YES if the receiver has an account, NO if not: ", key='3')
             
-            if receiverOption == 1:
+            # receiverOption = InputManager.define_numbers(message="Please enter 1 if the receiver has an account, 2 if not:", infLimit = 1, supLimit = 2,typeOfNumber = int)
+            print(f"R: '{receiverOption}'")
+            if receiverOption == "YES":
                 #STARTS QUERIES FOR UserPublicKey TABLE
-                destinationUsername = InputManager.define_string("Please enter the destination username:")
+                destinationUsername = st.text_input("Please enter the destination username: ", key='4')
+
+                # destinationUsername = InputManager.define_string("Please enter the destination username:")
 
                 query = f"SELECT publicKey FROM UserPublicKey WHERE username = \"{destinationUsername}\""
                 queryResult = self.SQL_execute_twoway_statement(query)
 
                 if not queryResult:
-                    InputManager.display_message(message = "This user does not exists, please try again")
+                    st.error("This user does not exists, please try again")
+                    # InputManager.display_message(message = "This user does not exists, please try again")
                     return
                 destinationPublicKey = queryResult[0][0]
                 #FINISHES QUERIES FOR UserPublicKey TABLE
             else:
-                destinationPublicKey = InputManager.define_string("Please enter the destination public key:")
+                destinationPublicKey = st.text_input("Please enter the destination public key: ", key='5')
+                # destinationPublicKey = InputManager.define_string("Please enter the destination public key:")
 
             base_fee=self.server.fetch_base_fee()
-            feeConfirmation = InputManager.define_numbers(message=f"An ammount of {base_fee} will be charged as fee, enter 1 if you confirm, 2 for cancelling", infLimit = 1, supLimit = 2,typeOfNumber = int)
+            feeConfirmation = int(st.text_input(f"An ammount of {base_fee} will be charged as fee, enter 1 if you confirm, 2 for cancelling", key='6'))
+            # feeConfirmation = InputManager.define_numbers(message=f"An ammount of {base_fee} will be charged as fee, enter 1 if you confirm, 2 for cancelling", infLimit = 1, supLimit = 2,typeOfNumber = int)
 
             if feeConfirmation == 2:
-                InputManager.display_message(message="Transaction canceled")
+                st.error("Transaction canceled")
+                # InputManager.display_message(message="Transaction canceled")
                 return  
             try:
                 self.server.load_account(destinationPublicKey)
             except NotFoundError:
-                InputManager.display_message(message="Account not found")
+                st.error("Account not found")
+                # InputManager.display_message(message="Account not found")
                 return
             
             Transaction_Trust= (
@@ -281,13 +302,14 @@ class StellarClient:
                     )
 
                     .append_payment_op(destination=destinationPublicKey,
-                    amount=input("\nHow much would you like to send?\n"),
-                    asset_code=input("\nWhat asset would you like to send?\n"))
+                    
+                    amount = st.number_input("How much would you like to send?", key='7'),
+                    asset_code = st.text_input("What asset would you like to send?: ", key='8') )
 
-                    .add_text_memo(input("What would you like to add as a memo?\n"))
+                    .add_text_memo(st.text_input("What would you like to add as a memo? ", key='9'))
 
                     #times out the transaction if not completed within x seconds
-                    .set_timeout(int(input("\nHow many seconds would you like for the transaction to be vaild for?\n")))
+                    .set_timeout(int(st.number_input("How many seconds would you like for the transaction to be vaild for? ", key='10', min_value=0)))
                     .build()
                     )
             Transaction_Trust.sign(self.privateKey)
@@ -295,41 +317,47 @@ class StellarClient:
             try:
                 Final_response=self.server.submit_transaction(Transaction_Trust)
                 print(f"Response:{Final_response}")
-                InputManager.display_message(message = "\nTransaction added to blockchain\n")
+                st.success('Transaction added to blockchain')
+                # InputManager.display_message(message = "\nTransaction added to blockchain\n")
                 # print(f"Response:{Final_response}")
                 # print("\nTransaction added to blockchain\n")
             except (BadRequestError,BadResponseError) as error:
-                InputManager.display_message(message=f"Error: {error}")
+                st.error(f"Error: {error}")
+                # InputManager.display_message(message=f"Error: {error}")
 
-        col_1, col_2 = st.columns((2, 2))
-        with col_1:
+        fcol_1, fcol_2, fcol_3 = st.columns((1, 2, 1))
+        with fcol_2:
             with st.expander('Click to display your balance'):
-                st.table(pd.DataFrame(display_balance()))
-        col_1_1, col_2_1, col_3_1 = st.columns((1, 5, 1))
-        with col_2_1:
+                st.table(display_balance())
+        scol_1, scol_2, scol_3 = st.columns((1, 5, 1))
+        with scol_2:
             with st.expander('Click here to see your account data.'): 
                 id, name, age, sex = display_account_data()
                 st.table(pd.DataFrame({'id':id, 
                                         'name':name, 
                                         'age':age, 
                                         'sex':sex}))
+        tcol_1 = st.columns((1))
+        # with tcol_1:
+        #     with st.expander('Click here to make a payment.'): 
+        send_payment()
 
 
+    # def initialize_client(self, selectedOption):
+    #     self.SQL_initialize()
+    #     while True:                                                             #Main loop that runs the client console menu.
+    #         #selectedOption = InputManager.define_numbers(message="Type a number according to your selected option", infLimit = 1, supLimit = 3,typeOfNumber = int) #Calls InputManager function for entering a bounded number and repeating until the number is accepted.                                                           #Breaks the main loop and exits the program.
+    #         if selectedOption == 'login': #Not coded yet                                  #Executes what you need to log in into your account.
+    #             logFlag = self.log_in()                                             #Calls the log in service, if is successful returns 'True' else returns 'False'.
+    #             if logFlag:                                                         #If the log in service is successful, call the main logged menu.
+    #                 self.main_menu()
 
-    def initialize_client(self, selectedOption):
-        self.SQL_initialize()
-        while True:                                                             #Main loop that runs the client console menu.
-            #selectedOption = InputManager.define_numbers(message="Type a number according to your selected option", infLimit = 1, supLimit = 3,typeOfNumber = int) #Calls InputManager function for entering a bounded number and repeating until the number is accepted.                                                           #Breaks the main loop and exits the program.
-            if selectedOption == 'login': #Not coded yet                                  #Executes what you need to log in into your account.
-                logFlag = self.log_in()                                             #Calls the log in service, if is successful returns 'True' else returns 'False'.
-                if logFlag:                                                         #If the log in service is successful, call the main logged menu.
-                    self.main_menu()
-
-            if selectedOption == 'create_account':                                                 #Executes the necessary for creating an account.
-                self.create_account()         
+    #         if selectedOption == 'create_account':                                                 #Executes the necessary for creating an account.
+    #             self.create_account()         
 
 
 
 if __name__ == "__main__":
-    client = StellarClient()
-    client.initialize_client()
+    # client = StellarClient()
+    # client.initialize_client()
+    pass
