@@ -98,52 +98,8 @@ class StellarClient:
 
 
 
-    def process_data(self):                                                                                     #<---------- Handles all data required inputs for account creation ---------->
+    def process_data(self, profileData):                                                                                     #<---------- Handles all data required inputs for account creation ---------->
         
-        while True:
-                                                                                                   #Starts loop until the new account ID entered is not already registered. 
-            #REPLACE WITH STREAMLIT INPUT                                                       
-            profileID = st.sidebar.text_input("Please enter your new account ID")              #Enters the new account ID.
-            hashedProfileID = sha256(profileID.encode()).hexdigest()                                #Hashes it and turns it into hex string
-
-            query = f"SELECT EXISTS(SELECT * FROM UserLoginData WHERE hashedUsername = \"{hashedProfileID}\") "       #Prepares SQL query
-
-            queryResult = self.SQL_execute_twoway_statement(query)[0][0]                                            #Because the function returns an array with tuples, we want the first registry and the first element from the tuple.
-
-            if queryResult:                                                                     #If the account is already registered, display message and continue in loop.
-                st.error("This account ID is already registered, please try another one")
-            else:
-                with st.sidebar.form(key='my_form'):
-                    #REPLACE WITH STREAMLIT INPUT 
-                    profileName = st.text_input("Please enter your full name:")                                #Enters the person name.
-                    #REPLACE WITH STREAMLIT INPUT 
-                    profileAge = st.text_input(message="Please enter your age (Must be greater or equal than 18):")             #Enters the person age with bounds.
-                    #REPLACE WITH STREAMLIT INPUT 
-                    profileSex = st.text_input("Please enter the letter corresponding to your sex (Male = M) (Female = F):")                                       #Enters the person sex.
-                    #REPLACE WITH STREAMLIT INPUT 
-                    profilePassword = sha256(st.text_input("Please enter your password, must be minimum 6 characters long, maximum 30:").encode()).hexdigest()   #Enters the new account password with length bounds and hashes it.
-                    #REPLACE WITH STREAMLIT INPUT 
-                    publicKey = st.text_input("Please your public key:") 
-                    #REPLACE WITH STREAMLIT INPUT 
-                    privateKey = st.text_input("Please your private key:")
-                    submit_but = st.sidebar.form_submit_button('Sign Up') 
-
-                #Prepares data into a hashMap (Dictionary)
-                if submit_but:
-                    return {
-                        "Username": profileID,
-                        "HashedUsername": hashedProfileID,
-                        "Name": profileName,
-                        "Age": profileAge,
-                        "Sex": profileSex,
-                        "Password": profilePassword,
-                        "PublicKey": publicKey,
-                        "PrivateKey": privateKey,
-                    }      
-
-    def create_account(self): #Full creation of an account process
-
-        profileData = self.process_data()  #Gets all the needed data for the creation of an account
 
         encryptKey = Fernet.generate_key()  #Generates a unique encryption key
         fernetKey = Fernet(encryptKey)      #Generates a Fernet object for encrypting things with the key in bytes format
@@ -194,8 +150,9 @@ class StellarClient:
             st.error(message = "There was an error while creating your account, query 2")
             return
 
-        st.info(f"Encrypt Key: {encryptKey}")                                         #If no errors, display successful creation
-        st.success("Account succesfully created")                                         #If no errors, display successful creation
+        #st.info(f"Encrypt Key: {encryptKey}")                                         #If no errors, display successful creation
+        st.success("Account succesfully created")                                        #If no errors, display successful creation
+    
 
     def log_in(self):
         #with st.sidebar.text:
@@ -218,6 +175,7 @@ class StellarClient:
                 self.hashedSessionID = hashedSessionID
                 self.sessionPassword = sessionPassword
                 self.encryptKey = queryResult[0][0].encode()
+                st.success('You logged succesfully!')
 
             usernameSpecial = self.sessionID+"WDSI"                                                    #We salt the username with a 'WSDI' string for more security
             usernameSpecialHash = sha256(usernameSpecial.encode()).hexdigest()
@@ -240,6 +198,25 @@ class StellarClient:
             self.sex = queryResult2[0][3]
             self.age = queryResult2[0][4]
             self.balances = queryResult2[0][5]
+            #STARTS QUERIES FOR UserPublicKey TABLE
+
+            query3 = f"SELECT publicKey FROM UserPublicKey WHERE username = \"{self.sessionID}\""
+            queryResult3 = self.SQL_execute_twoway_statement(query3)
+
+            self.publicKey = queryResult3[0][0]
+            #FINISHES QUERIES FOR UserPublicKey TABLE
+
+            #InputManager.display_message(message = f"Publickey: {self.publicKey}")                                         #If no errors, display successful creation
+            
+            #STELLAR CONFIG
+
+            self.server = Server('https://horizon.stellar.org')
+            try:
+                self.Source_account=self.server.accounts().account_id(self.publicKey).call()
+            except:
+                #InputManager.display_message(message = "Invalid Stellar public key")
+                st.error('We cannot found your Public Key!')
+                return False
 
             return True
 
@@ -248,7 +225,7 @@ class StellarClient:
             for balance in self.Source_account['balances']:
                 #XLM is Stellar's own Asset
                 print(f"Asset Type:{balance['asset_type']},Total Balance:{balance['balance']}")
-            InputManager.display_message(message = "")
+            #InputManager.display_message(message = "")
 
         def display_account_data():                                                                         #Displays all the available data of the current logged user.
             print("")                                                                                       
@@ -324,30 +301,7 @@ class StellarClient:
 
 
 
-        while True:                                                             #Menu for logged users.
-            print("")
-            print("*****************************************************")
-            print(f"WELCOME {self.sessionID}")
-            print("")
-            print("1) See current balance")
-            print("2) Send payment")
-            print("3) See my account data")
-            print("4) Exit")
-            print("")
-            print("*****************************************************")
-            selectedOption = InputManager.define_numbers(message="Type a number according to your selected option:", infLimit = 1, supLimit = 4,typeOfNumber = int)
-            if selectedOption == 4:
-                break
-            
-            if selectedOption == 1:
-                display_balance()
-            
-            if selectedOption == 2:
-                send_payment()
-
-            if selectedOption == 3:
-                display_account_data()
-        
+        st.info(display_balance())
 
 
 
