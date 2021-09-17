@@ -37,7 +37,8 @@ def sign_up_form(profileID, hashedProfileID, sc):
                                             key='50', 
                                             max_chars=30).encode()).hexdigest()   #Enters the new account password with length bounds and hashes it.
     #REPLACE WITH STREAMLIT INPUT 
-    server = Server('https://horizon.stellar.org')
+    #server = Server('https://horizon.stellar.org')
+    server = Server('https://horizon-testnet.stellar.org')
     publicKey = st.text_input("Please your public key:", key='60')
     privateKey = st.text_input("Please your private key:", key='70', type='password')
     submit_but = st.form_submit_button('Sign Up') 
