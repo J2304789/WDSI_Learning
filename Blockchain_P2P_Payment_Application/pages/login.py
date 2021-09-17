@@ -18,4 +18,6 @@ from Client.stellar_client import StellarClient
 
 def app():
     sc = StellarClient()
+    if sc.log_in():
+        sc.main_menu()
     # sc.initialize_client('login')
