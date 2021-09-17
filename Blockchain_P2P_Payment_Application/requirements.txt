@@ -1,0 +1,6 @@
+stellar-sdk==4.1.1
+streamlit==0.88.0
+stellar-base==1.1.2.0
+mysql-connector==2.2.9
+cryptography==3.4.8
+stellar_sdk==4.2.0

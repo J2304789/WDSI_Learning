@@ -1,4 +1,5 @@
 from re import U
+from typing import ValuesView
 from stellar_sdk.keypair import Keypair
 #stellar_sdk.server used to connect to Stellar-core through the Horizon API
 from stellar_sdk.server import Server
@@ -12,10 +13,12 @@ from stellar_sdk.exceptions import NotFoundError,BadResponseError,BadRequestErro
 import requests
 
 import mysql.connector      
-from input_manager import InputManager
+from Client.input_manager import InputManager
 from hashlib import sha256
 import time
 from cryptography.fernet import Fernet
+import streamlit as st
+import pandas as pd
 
 
 
@@ -33,6 +36,7 @@ class StellarClient:
         self.sex = ""
         self.age = ""
         self.balances = ""
+        #self.connection = None
 
         self.mySQLConfig = {
                         'user': 'sql5436993',
@@ -43,6 +47,7 @@ class StellarClient:
                         }
 
         self.public_network_passphrase=Network.PUBLIC_NETWORK_PASSPHRASE
+        self.SQL_initialize()
         
 
 
@@ -95,45 +100,8 @@ class StellarClient:
 
 
 
-    def process_data(self):                                                                                     #<---------- Handles all data required inputs for account creation ---------->
+    def process_data(self, profileData):                                                                                     #<---------- Handles all data required inputs for account creation ---------->
         
-        while True:      
-                                                                                                   #Starts loop until the new account ID entered is not already registered. 
-            #REPLACE WITH STREAMLIT INPUT                                                        
-            profileID = InputManager.define_string("Please enter your new account ID")              #Enters the new account ID.
-            hashedProfileID = sha256(profileID.encode()).hexdigest()                                #Hashes it and turns it into hex string
-
-            query = f"SELECT EXISTS(SELECT * FROM UserLoginData WHERE hashedUsername = \"{hashedProfileID}\") "       #Prepares SQL query
-
-            queryResult = self.SQL_execute_twoway_statement(query)[0][0]                                            #Because the function returns an array with tuples, we want the first registry and the first element from the tuple.
-
-            if queryResult:                                                                     #If the account is already registered, display message and continue in loop.
-                InputManager.display_message("This account ID is already registered, please try another one")
-            else:                                                                                               #If the account is not registered, break the loop.
-                break
-
-
-        #REPLACE WITH STREAMLIT INPUT 
-        profileName = InputManager.define_string("Please enter your full name:")                                #Enters the person name.
-        #REPLACE WITH STREAMLIT INPUT 
-        profileAge = InputManager.define_numbers(message="Please enter your age (Must be greater or equal than 18):", infLimit = 18,typeOfNumber = int)             #Enters the person age with bounds.
-        #REPLACE WITH STREAMLIT INPUT 
-        profileSex = InputManager.define_string("Please enter the letter corresponding to your sex (Male = M) (Female = F):")                                       #Enters the person sex.
-        #REPLACE WITH STREAMLIT INPUT 
-        profilePassword = sha256(InputManager.define_string(message="Please enter your password, must be minimum 6 characters long, maximum 30:", infLimit=6, supLimit=30).encode()).hexdigest()   #Enters the new account password with length bounds and hashes it.
-        #REPLACE WITH STREAMLIT INPUT 
-        publicKey = InputManager.define_string("Please your public key:") 
-        #REPLACE WITH STREAMLIT INPUT 
-        privateKey = InputManager.define_string("Please your private key:") 
-
-        #Prepares data into a hashMap (Dictionary)
-        profileData = {"Username": profileID, "HashedUsername": hashedProfileID, "Name": profileName, "Age": profileAge, "Sex": profileSex, "Password": profilePassword, "PublicKey": publicKey, "PrivateKey": privateKey}      
-
-        return profileData      
-
-    def create_account(self): #Full creation of an account process
-
-        profileData = self.process_data()  #Gets all the needed data for the creation of an account
 
         encryptKey = Fernet.generate_key()  #Generates a unique encryption key
         fernetKey = Fernet(encryptKey)      #Generates a Fernet object for encrypting things with the key in bytes format
@@ -145,7 +113,7 @@ class StellarClient:
         queryResult = self.SQL_execute_oneway_statement(query)                                                                              #Executes the SQL query
 
         if not queryResult:                                                                                 #If this query wasn't successful, print error.
-            InputManager.display_message("There was an error while creating your account, query 1")
+            st.error("There was an error while creating your account, query 1")
             return
 
         #FINISHES QUERIES FOR UserLoginData TABLE
@@ -167,7 +135,7 @@ class StellarClient:
         queryResult2 = self.SQL_execute_oneway_statement(query2)
 
         if not queryResult2:                                                                                    #If this query wasn't successful, print error.
-            InputManager.display_message("There was an error while creating your account, query 2")
+            st.error("There was an error while creating your account, query 2")
             return
 
         #FINISHES QUERIES FOR UserData TABLE
@@ -181,123 +149,181 @@ class StellarClient:
         #FINISHES QUERIES FOR UserPublicKey TABLE
 
         if not queryResult3:
-            InputManager.display_message(message = "There was an error while creating your account, query 2")
+            st.error(message = "There was an error while creating your account, query 2")
             return
 
-        # InputManager.display_message(message = f"Encrypt Key: {encryptKey}")                                         #If no errors, display successful creation
-        InputManager.display_message(message = "Account succesfully created")                                         #If no errors, display successful creation
+        #st.info(f"Encrypt Key: {encryptKey}")                                         #If no errors, display successful creation
+        st.success("Account succesfully created")                                        #If no errors, display successful creation
+    
 
     def log_in(self):
-        sessionID = InputManager.define_string("Please enter your account ID")
-        hashedSessionID = sha256(sessionID.encode()).hexdigest()
-
-        sessionPassword = sha256(InputManager.define_string(message="Please enter your password:", infLimit=6, supLimit=30).encode()).hexdigest()
-
+        #with st.sidebar.text:
+        sessionID = st.sidebar.text_input("Please enter your account ID", key='1')
+        sessionPassword = sha256(st.sidebar.text_input("Please enter your password:", type='password', key='2').encode()).hexdigest()
+        submit = st.sidebar.button('Login')
         #STARTS QUERIES FOR UserLoginData TABLE
-
-        query = f"SELECT encryptionKey FROM UserLoginData WHERE hashedUsername = \"{hashedSessionID}\" AND hashedPassword = \"{sessionPassword}\""
-        queryResult = self.SQL_execute_twoway_statement(query)
+        if submit:
+            hashedSessionID = sha256(sessionID.encode()).hexdigest()
+            query = f"SELECT encryptionKey FROM UserLoginData WHERE hashedUsername = \"{hashedSessionID}\" AND hashedPassword = \"{sessionPassword}\""
+            queryResult = self.SQL_execute_twoway_statement(query)
         
-        #FINISHES QUERIES FOR UserLoginData TABLE
+            #FINISHES QUERIES FOR UserLoginData TABLE
 
-        if not queryResult:
-            InputManager.display_message(message = "The password or user for this account is incorrect, please try again")
-            return False
-        else:
-            self.sessionID = sessionID
-            self.hashedSessionID = hashedSessionID
-            self.sessionPassword = sessionPassword
-            self.encryptKey = queryResult[0][0].encode()
+            if not queryResult:
+                st.error("The password or user for this account is incorrect, please try again")
+                return False
+            else:
+                self.sessionID = sessionID
+                self.hashedSessionID = hashedSessionID
+                self.sessionPassword = sessionPassword
+                self.encryptKey = queryResult[0][0].encode()
+                st.sidebar.success('You logged succesfully!')
 
-        usernameSpecialHash = self.sessionID+"WDSI"                                                    #We salt the username with a 'WSDI' string for more security
-        usernameSpecialHash = sha256(usernameSpecialHash.encode()).hexdigest()
+            usernameSpecial = self.sessionID+"WDSI"                                                    #We salt the username with a 'WSDI' string for more security
+            usernameSpecialHash = sha256(usernameSpecial.encode()).hexdigest()
 
-        #STARTS QUERIES FOR UserData TABLE
+            #STARTS QUERIES FOR UserData TABLE
 
-        query2 = f"SELECT * FROM UserData WHERE usernameSpecialHash = \"{usernameSpecialHash}\""
-        queryResult2 = self.SQL_execute_twoway_statement(query2)
+            query2 = f"SELECT * FROM UserData WHERE usernameSpecialHash = \"{usernameSpecialHash}\""
+            queryResult2 = self.SQL_execute_twoway_statement(query2)
 
-        #FINISHES QUERIES FOR UserData TABLE
+            #FINISHES QUERIES FOR UserData TABLE
 
-        fernetKey = Fernet(self.encryptKey)      #Generates a Fernet object for encrypting things with the key in bytes format
+            fernetKey = Fernet(self.encryptKey)      #Generates a Fernet object for encrypting things with the key in bytes format
 
-        nameEncrypted = queryResult2[0][2].encode()
-        self.name = fernetKey.decrypt(nameEncrypted).decode()
+            nameEncrypted = queryResult2[0][2].encode()
+            self.name = fernetKey.decrypt(nameEncrypted).decode()
 
-        privateKeyEncrypted = queryResult2[0][1].encode()
-        self.privateKey = fernetKey.decrypt(privateKeyEncrypted).decode()
+            privateKeyEncrypted = queryResult2[0][1].encode()
+            self.privateKey = fernetKey.decrypt(privateKeyEncrypted).decode()
 
-        self.sex = queryResult2[0][3]
-        self.age = queryResult2[0][4]
-        self.balances = queryResult2[0][5]
+            self.sex = queryResult2[0][3]
+            self.age = queryResult2[0][4]
+            self.balances = queryResult2[0][5]
+            #STARTS QUERIES FOR UserPublicKey TABLE
 
-        #STARTS QUERIES FOR UserPublicKey TABLE
+            query3 = f"SELECT publicKey FROM UserPublicKey WHERE username = \"{self.sessionID}\""
+            queryResult3 = self.SQL_execute_twoway_statement(query3)
 
-        query3 = f"SELECT publicKey FROM UserPublicKey WHERE username = \"{self.sessionID}\""
-        queryResult3 = self.SQL_execute_twoway_statement(query3)
+            self.publicKey = queryResult3[0][0]
+            #FINISHES QUERIES FOR UserPublicKey TABLE
 
-        self.publicKey = queryResult3[0][0]
-        #FINISHES QUERIES FOR UserPublicKey TABLE
+            #InputManager.display_message(message = f"Publickey: {self.publicKey}")                                         #If no errors, display successful creation
+            
+            #STELLAR CONFIG
 
-        InputManager.display_message(message = f"Publickey: {self.publicKey}")                                         #If no errors, display successful creation
-        
-        #STELLAR CONFIG
-
-        self.server = Server('https://horizon.stellar.org')
-        try:
-            self.Source_account=self.server.accounts().account_id(self.publicKey).call()
-        except:
-            InputManager.display_message(message = "Invalid Stellar public key")
-            return False
-
-        return True
+            self.server = Server('https://horizon.stellar.org')
+            #self.server = Server("https://horizon-testnet.stellar.org")
+            try:
+                self.Source_account=self.server.accounts().account_id(self.publicKey).call()
+            except:
+                #InputManager.display_message(message = "Invalid Stellar public key")
+                #st.error('We cannot found your Public Key!')
+                return False
+            st.success('You logged succesfully!')
+            return True
 
     def main_menu(self):                                                                                    #<---------- Main menu for logged users ---------->
-        def display_balance():                                                                              #Displays the balance of the current logged user.
+        # sourcery no-metrics
+        def display_balance():
+            dataframe = {'Asset Type': [], 
+                         'Total Balance': []}                                                                            #Displays the balance of the current logged user.
             for balance in self.Source_account['balances']:
-                #XLM is Stellar's own Asset
-                print(f"Asset Type:{balance['asset_type']},Total Balance:{balance['balance']}")
-            InputManager.display_message(message = "")
+                if balance['asset_type'] == "native":
+                    balance['asset_type'] = "XLM"
+                dataframe['Asset Type'].append(balance['asset_type'])
+                dataframe['Total Balance'].append(balance['balance'])
+                # return {'Asset Type': [balance['asset_type']], 
+                #                 'Total Balance': [balance['balance']]}
+                #st.write(f"Asset Type: {balance['asset_type']}, Total Balance: {balance['balance']}")
+            #InputManager.display_message(message = "")
+            dataframe = pd.DataFrame(dataframe)
+
+            dataframe.index = dataframe['Asset Type']
+            dataframe.drop('Asset Type', axis=1, inplace=True)
+            # print(dataframe)
+            return dataframe
 
         def display_account_data():                                                                         #Displays all the available data of the current logged user.
-            print("")                                                                                       
-            print(f"Your registered ID is   : {self.sessionID}")
-            print(f"Your registered Name is : {self.name}")
-            print(f"Your registered Age is  : {self.age}")
-            print(f"Your registered Sex is  : {self.sex}")
-            print(f"Balances: ")
-            display_balance()
+                                                                                                 
+            registered_id = [self.sessionID]
+            name = [self.name]
+            age = [self.age]
+            sex = [self.sex]
+            return registered_id, name, age, sex
 
 
         def send_payment():        
                                                                                      #Initializes the process for sending a payment to another user.            
-            receiverOption = InputManager.define_numbers(message="Please enter 1 if the receiver has an account, 2 if not:", infLimit = 1, supLimit = 2,typeOfNumber = int)
+            receiverOption = st.text_input("Please enter YES if the receiver has an account, NO if not: ", key='3')
             
-            if receiverOption == 1:
+            # receiverOption = InputManager.define_numbers(message="Please enter 1 if the receiver has an account, 2 if not:", infLimit = 1, supLimit = 2,typeOfNumber = int)
+            print(f"R: '{receiverOption}'")
+            if receiverOption == "YES":
                 #STARTS QUERIES FOR UserPublicKey TABLE
-                destinationUsername = InputManager.define_string("Please enter the destination username:")
+                destinationUsername = st.text_input("Please enter the destination username: ", key='4')
 
+                # destinationUsername = InputManager.define_string("Please enter the destination username:")
+
+            destinationUsername = st.text_input("Please enter the destination username:")
+            if destinationUsername:
                 query = f"SELECT publicKey FROM UserPublicKey WHERE username = \"{destinationUsername}\""
                 queryResult = self.SQL_execute_twoway_statement(query)
 
                 if not queryResult:
-                    InputManager.display_message(message = "This user does not exists, please try again")
+                    st.warning("This user does not exists, please try again!")
                     return
                 destinationPublicKey = queryResult[0][0]
+            self.know_form_builder()
                 #FINISHES QUERIES FOR UserPublicKey TABLE
+            #button_avance = st.form_submit_button('Advance in transaction')
+            if receiverOption is not 'Yes, I do!':
+                with st.form(key='unknow_key'):
+                    destinationPublicKey = st.text_input("Please enter the destination public key:")
+
+                    base_fee=self.server.fetch_base_fee()
+                    feeInformation = st.info(f"An ammount of {base_fee} will be charged as fee")
+                    feeConfirmation = st.radio('Do you want to continue?', 
+                                                options=["Yes!", "No! I want to cancel this transaction!"])
+
+                if feeConfirmation =="No! I want to cancel this transaction!":
+                    st.info('This transacttion was canceled!')
+                    return 
+                else:
+                    if destinationPublicKey:
+                        try:
+                            self.server.load_account(destinationPublicKey)
+                        except NotFoundError:
+                            st.warning("This Account was not found. Please, put a valid accounnt!")
+                            return
+        with st.form(key='trans_form'):
+            destinationPublicKey = st.text_input("Please enter the destination public key:")
+            amount_money = st.text_input("\nHow much would you like to send?\n") 
+            asset_transaction = st.text_input("\nWhat asset would you like to send?\n")
+            memo_message = st.text_input("What would you like to add as a memo?\n")
+            valid_time = st.text_input("\nHow many seconds would you like for the transaction to be vaild for?\n")
+
+            submit_transaction = st.form_submit_button('Make transaction!')
+        if submit_transaction:
+            if not destinationPublicKey or not amount_money or not asset_transaction or not valid_time:
+                st.warning('Fill al the fields to continue your transaction!')
             else:
-                destinationPublicKey = InputManager.define_string("Please enter the destination public key:")
+                destinationPublicKey = st.text_input("Please enter the destination public key: ", key='5')
+                # destinationPublicKey = InputManager.define_string("Please enter the destination public key:")
 
             base_fee=self.server.fetch_base_fee()
-            feeConfirmation = InputManager.define_numbers(message=f"An ammount of {base_fee} will be charged as fee, enter 1 if you confirm, 2 for cancelling", infLimit = 1, supLimit = 2,typeOfNumber = int)
+            feeConfirmation = int(st.text_input(f"An ammount of {base_fee} will be charged as fee, enter 1 if you confirm, 2 for cancelling", key='6'))
+            # feeConfirmation = InputManager.define_numbers(message=f"An ammount of {base_fee} will be charged as fee, enter 1 if you confirm, 2 for cancelling", infLimit = 1, supLimit = 2,typeOfNumber = int)
 
             if feeConfirmation == 2:
-                InputManager.display_message(message="Transaction canceled")
+                st.error("Transaction canceled")
+                # InputManager.display_message(message="Transaction canceled")
                 return  
             try:
                 self.server.load_account(destinationPublicKey)
             except NotFoundError:
-                InputManager.display_message(message="Account not found")
+                st.error("Account not found")
+                # InputManager.display_message(message="Account not found")
                 return
             
             Transaction_Trust= (
@@ -311,84 +337,61 @@ class StellarClient:
                     )
 
                     .append_payment_op(destination=destinationPublicKey,
-                    amount=input("\nHow much would you like to send?\n"),
-                    asset_code=input("\nWhat asset would you like to send?\n"))
+                    
+                    amount = st.number_input("How much would you like to send?", key='7'),
+                    asset_code = st.text_input("What asset would you like to send?: ", key='8') )
 
-                    .add_text_memo(input("What would you like to add as a memo?\n"))
+                    .add_text_memo(st.text_input("What would you like to add as a memo? ", key='9'))
 
                     #times out the transaction if not completed within x seconds
-                    .set_timeout(int(input("\nHow many seconds would you like for the transaction to be vaild for?\n")))
+                    .set_timeout(int(st.number_input("How many seconds would you like for the transaction to be vaild for? ", key='10', min_value=0)))
                     .build()
                     )
-            Transaction_Trust.sign(self.privateKey)
 
             try:
                 Final_response=self.server.submit_transaction(Transaction_Trust)
                 print(f"Response:{Final_response}")
-                InputManager.display_message(message = "\nTransaction added to blockchain\n")
+                st.success('Transaction added to blockchain')
+                # InputManager.display_message(message = "\nTransaction added to blockchain\n")
                 # print(f"Response:{Final_response}")
                 # print("\nTransaction added to blockchain\n")
             except (BadRequestError,BadResponseError) as error:
-                InputManager.display_message(message=f"Error: {error}")
+                st.error(f"Error: {error}")
+                # InputManager.display_message(message=f"Error: {error}")
+
+        fcol_1, fcol_2, fcol_3 = st.columns((1, 2, 1))
+        with fcol_2:
+            with st.expander('Click to display your balance'):
+                st.table(display_balance())
+        scol_1, scol_2, scol_3 = st.columns((1, 5, 1))
+        with scol_2:
+            with st.expander('Click here to see your account data.'): 
+                id, name, age, sex = self.display_account_data()
+                st.table(pd.DataFrame({'id':id, 
+                                        'name':name, 
+                                        'age':age, 
+                                        'sex':sex}))
+        tcol_1 = st.columns((1))
+        # with tcol_1:
+        #     with st.expander('Click here to make a payment.'): 
+        send_payment()
 
 
+    # def initialize_client(self, selectedOption):
+    #     self.SQL_initialize()
+    #     while True:                                                             #Main loop that runs the client console menu.
+    #         #selectedOption = InputManager.define_numbers(message="Type a number according to your selected option", infLimit = 1, supLimit = 3,typeOfNumber = int) #Calls InputManager function for entering a bounded number and repeating until the number is accepted.                                                           #Breaks the main loop and exits the program.
+    #         if selectedOption == 'login': #Not coded yet                                  #Executes what you need to log in into your account.
+    #             logFlag = self.log_in()                                             #Calls the log in service, if is successful returns 'True' else returns 'False'.
+    #             if logFlag:                                                         #If the log in service is successful, call the main logged menu.
+    #                 self.main_menu()
 
-        while True:                                                             #Menu for logged users.
-            print("")
-            print("*****************************************************")
-            print(f"WELCOME {self.sessionID}")
-            print("")
-            print("1) See current balance")
-            print("2) Send payment")
-            print("3) See my account data")
-            print("4) Exit")
-            print("")
-            print("*****************************************************")
-            selectedOption = InputManager.define_numbers(message="Type a number according to your selected option:", infLimit = 1, supLimit = 4,typeOfNumber = int)
-            if selectedOption == 4:
-                break
-            
-            if selectedOption == 1:
-                display_balance()
-            
-            if selectedOption == 2:
-                send_payment()
-
-            if selectedOption == 3:
-                display_account_data()
-        
-
-
-
-    def initialize_client(self):
-        self.SQL_initialize()
-        while True:                                                                 #Main loop that runs the client console menu.
-            print("")
-            print("*****************************************************")
-            print("WELCOME TO THE STELLAR NETWORK P2P SERVICE")
-            print("")
-            print("1) Log in")                                                      #Option for log in into your account by typing 1.
-            print("2) Create account")                                              #Option for creating an account by typing 2.
-            print("3) Exit")                                                        #Option for exiting the menu by typing 3.
-            print("")
-            print("*****************************************************")
-            selectedOption = InputManager.define_numbers(message="Type a number according to your selected option", infLimit = 1, supLimit = 3,typeOfNumber = int) #Calls InputManager function for entering a bounded number and repeating until the number is accepted.
-            if selectedOption == 3:                                                 #What it executes when you exit the menu.
-                print()
-                print("THANKS FOR USING THE STELLAR NETWORK P2P SERVICE")
-                print()
-                break                                                               #Breaks the main loop and exits the program.
-            if selectedOption == 1: #Not coded yet                                  #Executes what you need to log in into your account.
-                pass
-                logFlag = self.log_in()                                             #Calls the log in service, if is successful returns 'True' else returns 'False'.
-                if logFlag:                                                         #If the log in service is successful, call the main logged menu.
-                    self.main_menu()
-
-            if selectedOption == 2:                                                 #Executes the necessary for creating an account.
-                self.create_account()         
+    #         if selectedOption == 'create_account':                                                 #Executes the necessary for creating an account.
+    #             self.create_account()         
 
 
 
 if __name__ == "__main__":
-    client = StellarClient()
-    client.initialize_client()
+    # client = StellarClient()
+    # client.initialize_client()
+    pass
