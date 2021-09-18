@@ -39,6 +39,14 @@ app = MultiPage()
 st.title("P2P Payment app")
 
 #st.header("")
+st.write("""Developed by:
+- Data Science Manager - Anade Davis [[Linkedin](https://www.linkedin.com/in/anadedatascientist/)]
+- Project Lead/Data Engineer - Mahmoud Hosny [[Linkedin](https://www.linkedin.com/in/mahmoudhosny74/)]
+- Financial Data Scientist - Moxú [[Linkedin](https://www.linkedin.com/in/dairenkonmajime/)]
+- Financial Data Scientist -Muhammad Jawwad Javeed Iqbal [[Linkedin](https://www.linkedin.com/in/jawwad-javeed/)]
+- Financial Blockchain Engineer - Alberto Navarrete [[Linkedin](https://www.linkedin.com/in/albertonr/)])
+"""
+)
 st.markdown('---')
 
 custom_green = 'rgb(124, 230, 110)'
