@@ -18,7 +18,7 @@ Financial **Peer to Peer (P2P)** application that uses [Stellar](https://stellar
 pip install stellar-sdk==4.1.1
 pip install streamlit
 pip install stellar-base
-pip install mysql-connector-python
+pip install mysql-connector
 pip install cryptography
 ```
 ## License
