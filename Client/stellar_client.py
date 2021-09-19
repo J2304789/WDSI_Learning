@@ -277,7 +277,7 @@ class StellarClient:
             self.know_form_builder()
                 #FINISHES QUERIES FOR UserPublicKey TABLE
             #button_avance = st.form_submit_button('Advance in transaction')
-            if receiverOption is not 'Yes, I do!':
+            if receiverOption != 'Yes, I do!':
                 with st.form(key='unknow_key'):
                     destinationPublicKey = st.text_input("Please enter the destination public key:")
 
