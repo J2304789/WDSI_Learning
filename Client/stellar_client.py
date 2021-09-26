@@ -12,13 +12,15 @@ from stellar_sdk.exceptions import NotFoundError,BadResponseError,BadRequestErro
 # #requests is used to initiate the transaction between friendbot and the Public keys
 import requests
 
-import mysql.connector      
+#import mysql.connector
+import psycopg2
 from Client.input_manager import InputManager
 from hashlib import sha256
 import time
 from cryptography.fernet import Fernet
 import streamlit as st
 import pandas as pd
+import os
 
 
 
@@ -38,12 +40,11 @@ class StellarClient:
         self.balances = ""
         #self.connection = None
 
-        self.mySQLConfig = {
-                        'user': 'sql5436993',
-                        'password': 'v7F7jRWVFc',
-                        'host': 'sql5.freesqldatabase.com',
-                        'database': 'sql5436993',
-                        'raise_on_warnings': True
+        self.posSQLConfig = {
+                        'user': 'pcmsnpipsrhmfv',
+                        'password': '98429e5d87a9ec2ec50a22f4469a2d78cc79a5d6fb136d2c72d554c0e72ba447',
+                        'host': 'ec2-54-145-110-118.compute-1.amazonaws.com',
+                        'database': 'd21v5u2d9flgmq'
                         }
 
         self.public_network_passphrase=Network.PUBLIC_NETWORK_PASSPHRASE
@@ -52,7 +53,9 @@ class StellarClient:
 
 
     def SQL_initialize(self):
-        self.connection = mysql.connector.connect(**self.mySQLConfig)
+        #self.connection = mysql.connector.connect(**self.mySQLConfig)
+        
+        self.connection = psycopg2.connect(**self.posSQLConfig)
 
     def SQL_execute_oneway_statement(self,query):
         try:
