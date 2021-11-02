@@ -13,7 +13,7 @@
 Financial **Peer to Peer (P2P)** application that uses [Stellar](https://stellar.org/) Blockchain to send and recieve digital currencies. 
  Web application created using [Streamlit](https://streamlit.io/)
 
-## Required Enviroment Installations
+## Required Environment Installations
 ```
 pip install stellar-sdk==4.1.1
 pip install streamlit
